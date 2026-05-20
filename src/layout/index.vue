@@ -13,6 +13,10 @@
           <span class="icon">✍️</span>
           <span class="text">公众号排版</span>
         </router-link>
+        <router-link to="/markdown" class="menu-item" active-class="active">
+          <span class="icon">📝</span>
+          <span class="text">Markdown 简历</span>
+        </router-link>
       </div>
     </div>
     <div class="main-content">
@@ -32,43 +36,38 @@
 <style scoped>
 .layout-container {
   display: flex;
+  overflow: hidden;
   width: 100vw;
   height: 100vh;
-  overflow: hidden;
   background-color: #f1f2f5;
 }
-
 .sidebar {
-  width: 240px;
-  background-color: #ffffff;
-  border-right: 1px solid #ebedf0;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.02);
   z-index: 100;
+  display: flex;
+  width: 240px;
+  border-right: 1px solid #ebedf0;
+  background-color: #ffffff;
+  box-shadow: 2px 0 8px rgb(0 0 0 / 2%);
+  flex-direction: column;
 }
-
 .logo {
-  height: 64px;
   display: flex;
   align-items: center;
   padding: 0 20px;
+  height: 64px;
   border-bottom: 1px solid #ebedf0;
 }
-
 .logo h2 {
   margin: 0;
   font-size: 18px;
-  color: #333;
+  color: #333333;
 }
-
 .menu {
-  padding: 16px 12px;
   display: flex;
+  padding: 16px 12px;
   flex-direction: column;
   gap: 8px;
 }
-
 .menu-item {
   display: flex;
   align-items: center;
@@ -78,27 +77,22 @@
   color: #606266;
   transition: all 0.3s ease;
 }
-
 .menu-item:hover {
+  color: #333333;
   background-color: #f5f7fa;
-  color: #333;
 }
-
 .menu-item.active {
-  background-color: #e6f7ff;
-  color: #1890ff;
   font-weight: 500;
+  color: #1890ff;
+  background-color: #e6f7ff;
 }
-
 .menu-item .icon {
   margin-right: 12px;
   font-size: 18px;
 }
-
 .menu-item .text {
   font-size: 15px;
 }
-
 .main-content {
   flex: 1;
   position: relative;
@@ -110,7 +104,6 @@
 .fade-leave-active {
   transition: opacity 0.2s ease;
 }
-
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
@@ -121,48 +114,41 @@
   .layout-container {
     flex-direction: column;
   }
-
   .sidebar {
-    width: 100%;
-    height: 60px;
-    flex-direction: row;
     position: fixed;
     bottom: 0;
     left: 0;
-    border-right: none;
+    width: 100%;
+    height: 60px;
     border-top: 1px solid #ebedf0;
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+    border-right: none;
+    box-shadow: 0 -2px 8px rgb(0 0 0 / 5%);
+    flex-direction: row;
   }
-
   .logo {
     display: none; /* 移动端隐藏 Logo，节约空间 */
   }
-
   .menu {
-    flex-direction: row;
-    width: 100%;
     padding: 0;
+    width: 100%;
+    flex-direction: row;
     gap: 0;
   }
-
   .menu-item {
+    justify-content: center;
+    padding: 6px 0;
+    border-radius: 0;
     flex: 1;
     flex-direction: column;
-    justify-content: center;
-    border-radius: 0;
-    padding: 6px 0;
   }
-
   .menu-item .icon {
     margin-right: 0;
     margin-bottom: 4px;
     font-size: 20px;
   }
-
   .menu-item .text {
     font-size: 12px;
   }
-
   .main-content {
     height: calc(100vh - 60px);
     flex: none; /* 覆盖默认 flex: 1，防止手机端高度算错 */

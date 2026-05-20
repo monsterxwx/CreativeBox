@@ -17,6 +17,11 @@ const router = createRouter({
           path: 'wechat',
           name: 'wechat',
           component: () => import('@/views/wechat/index.vue')
+        },
+        {
+          path: 'markdown',
+          name: 'markdown',
+          component: () => import('@/views/markdown/index.vue')
         }
       ]
     },

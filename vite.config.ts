@@ -21,7 +21,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     open: true,
-    port: 3331
+    port: 5689
   },
   build: setupBuild()
 })
