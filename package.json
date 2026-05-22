@@ -11,6 +11,8 @@
   "dependencies": {
     "dayjs": "^1.11.19",
     "echarts": "^5.6.0",
+    "file-saver": "^2.0.5",
+    "fabric": "^5.5.2",
     "html-to-image": "^1.11.13",
     "lz-string": "^1.5.0",
     "marked": "^17.0.5",
@@ -24,6 +26,8 @@
   },
   "devDependencies": {
     "@iconify/vue": "^5.0.0",
+    "@types/file-saver": "^2.0.7",
+    "@types/fabric": "^5.3.0-0",
     "@typescript-eslint/eslint-plugin": "^8.19.0",
     "@typescript-eslint/parser": "^8.19.0",
     "@unocss/transformer-directives": "^66.5.9",

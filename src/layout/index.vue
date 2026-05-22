@@ -17,6 +17,10 @@
           <span class="icon">📝</span>
           <span class="text">Markdown 简历</span>
         </router-link>
+        <router-link to="/poster" class="menu-item" active-class="active">
+          <span class="icon">🖼️</span>
+          <span class="text">海报编辑</span>
+        </router-link>
       </div>
     </div>
     <div class="main-content">
