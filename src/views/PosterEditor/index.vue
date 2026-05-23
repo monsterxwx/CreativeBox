@@ -532,7 +532,7 @@ const POSTER_HEIGHT = 1536
 const defaultBackgrounds = ref([
   'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1024&q=80',
   'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1024&q=80',
-  '/模板.png'
+  `${import.meta.env.BASE_URL}模板.png`
 ])
 
 const resourcePool = ref<string[]>([])
