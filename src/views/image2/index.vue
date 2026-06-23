@@ -86,8 +86,12 @@
         <div v-if="history.length > 0" class="image-grid">
           <div v-for="item in history" :key="item.id" class="image-item" :class="item.status">
             <template v-if="item.status === 'completed'">
-              <img :src="item.url" :alt="item.prompt" :title="item.prompt" />
-              <a :href="item.url" target="_blank" class="download-link">🔗 查看大图/下载</a>
+              <div class="generated-image-wrapper" @click="previewImage(item.url)">
+                <img :src="item.url" :alt="item.prompt" :title="item.prompt" />
+                <div class="preview-icon">🔍</div>
+              </div>
+              <p class="prompt-preview" :title="item.prompt">{{ item.prompt }}</p>
+              <a href="javascript:void(0)" @click.prevent="downloadImage(item.url, item.taskId)" class="download-link">⬇️ 点击下载原图</a>
             </template>
             <template v-else-if="item.status === 'pending'">
               <div class="status-box pending-box">
@@ -190,6 +194,14 @@
     <Teleport to="body">
       <AIKeyModal v-model="showAIKeyModal" @save="saveAIApiKey" style="z-index: 9999 !important;" />
     </Teleport>
+
+    <!-- Fullscreen Preview Modal -->
+    <Teleport to="body">
+      <div v-if="previewUrl" class="modal-overlay fullscreen-preview-overlay" @click="previewUrl = ''">
+        <button class="close-fullscreen-btn" @click.stop="previewUrl = ''">×</button>
+        <img :src="previewUrl" alt="Fullscreen Preview" class="fullscreen-image" @click.stop />
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -198,6 +210,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { Message } from '@/components/Message/index'
 import { useDeepSeek } from '@/utils/useDeepSeek'
 import AIKeyModal from '@/views/xiaohongshu/components/AIKeyModal.vue'
+import { saveAs } from 'file-saver'
 
 const resolveImageUrl = (path: string) => {
   if (!path) return ''
@@ -212,6 +225,15 @@ const size = ref('1:1')
 const n = ref('1')
 const fileInput = ref<HTMLInputElement | null>(null)
 const referenceImages = ref<{ file: File, preview: string, status: 'uploading'|'success'|'error', url?: string, errorMessage?: string }[]>([])
+const previewUrl = ref('')
+
+const previewImage = (url: string) => {
+  previewUrl.value = url
+}
+
+const downloadImage = (url: string, taskId?: string) => {
+  saveAs(url, taskId ? `generated-${taskId}.png` : 'generated-image.png')
+}
 
 interface HistoryItem {
   id: string;
@@ -886,7 +908,7 @@ const pollTaskResult = (taskId: string, promptStr: string) => {
 
 .image-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 20px;
   width: 100%;
   align-content: start;
@@ -905,11 +927,42 @@ const pollTaskResult = (taskId: string, promptStr: string) => {
   box-sizing: border-box;
 }
 
-.image-item img {
-  max-width: 100%;
-  max-height: 60vh;
+.generated-image-wrapper {
+  width: 100%;
+  position: relative;
+  cursor: zoom-in;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f5f5f5;
+}
+
+.generated-image-wrapper img {
+  width: 100%;
+  max-height: 350px;
   border-radius: 4px;
   object-fit: contain;
+  display: block;
+}
+
+.preview-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  background: rgba(0,0,0,0.4);
+  border-radius: 50%;
+  padding: 12px;
+  pointer-events: none;
+}
+
+.generated-image-wrapper:hover .preview-icon {
+  opacity: 1;
 }
 
 .status-box {
@@ -1045,12 +1098,19 @@ const pollTaskResult = (taskId: string, promptStr: string) => {
 }
 
 .gallery-modal-content {
-  width: 900px;
-  max-width: 95vw;
+  width: 90%;
+  max-width: 1200px;
   height: 90vh;
   display: flex;
   flex-direction: column;
   padding: 20px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 600px) {
+  .gallery-modal-content {
+    padding: 12px;
+  }
 }
 
 .gallery-header {
@@ -1261,11 +1321,70 @@ const pollTaskResult = (taskId: string, promptStr: string) => {
 @media (max-width: 768px) {
   .image2-container {
     flex-direction: column;
+    height: auto;
+    min-height: 100%;
   }
   .editor-panel {
     max-width: 100%;
     border-right: none;
     border-bottom: 1px solid #ebedf0;
   }
+  .preview-panel {
+    padding: 20px;
+    min-height: 600px;
+  }
+  .gallery-modal-content {
+    width: 95%;
+    height: 95vh;
+    padding: 12px;
+  }
+  .gallery-header {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+  }
+  .image-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .gallery-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .case-detail-content {
+    width: 95%;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+}
+
+.fullscreen-preview-overlay {
+  z-index: 9999 !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  cursor: zoom-out;
+}
+
+.fullscreen-image {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  cursor: default;
+}
+
+.close-fullscreen-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 40px;
+  cursor: pointer;
+  z-index: 10000;
+  line-height: 1;
+}
+
+.close-fullscreen-btn:hover {
+  color: #1890ff;
 }
 </style>
