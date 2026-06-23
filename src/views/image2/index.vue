@@ -138,7 +138,7 @@
             <div class="gallery-grid">
               <div class="gallery-item" v-for="c in filteredCases" :key="c.id" @click="openCaseDetail(c)">
                 <div class="image-wrapper">
-                  <img :src="c.image" loading="lazy" :alt="c.title" />
+                  <img :src="resolveImageUrl(c.image)" loading="lazy" :alt="c.title" />
                 </div>
                 <div class="gallery-title" :title="c.title">{{ c.title }}</div>
               </div>
@@ -154,7 +154,7 @@
         <div class="modal-content case-detail-content">
           <h3>{{ selectedCase.title }}</h3>
           <div class="case-detail-body">
-            <img :src="selectedCase.image" alt="Case Detail" class="case-detail-image" />
+            <img :src="resolveImageUrl(selectedCase.image)" alt="Case Detail" class="case-detail-image" />
             <div class="case-detail-prompt">
               <div class="prompt-header-row">
                 <strong>提示词:</strong>
@@ -198,6 +198,13 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { Message } from '@/components/Message/index'
 import { useDeepSeek } from '@/utils/useDeepSeek'
 import AIKeyModal from '@/views/xiaohongshu/components/AIKeyModal.vue'
+
+const resolveImageUrl = (path: string) => {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  const baseUrl = import.meta.env.BASE_URL
+  return `${baseUrl}${path.replace(/^\//, '')}`
+}
 
 const prompt = ref('')
 const resolution = ref('1k')
