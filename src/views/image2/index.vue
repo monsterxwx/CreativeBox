@@ -4,8 +4,11 @@
       <h2>🖼️ OpenAI gpt-image-2 生图</h2>
       <div class="subtitle">输入提示词，利用最新 gpt-image-2 异步接口生成图片（请注意数据保留7天）</div>
       
-      <div class="form-group">
-        <label>提示词 (Prompt):</label>
+      <div class="form-group prompt-group">
+        <div class="prompt-header">
+          <label>提示词 (Prompt):</label>
+          <button class="gallery-btn" @click="openGallery">💡 灵感图库</button>
+        </div>
         <textarea v-model="prompt" placeholder="请输入你要生成图片的提示词..." rows="4"></textarea>
       </div>
 
@@ -42,8 +45,8 @@
       </div>
 
       <div class="actions">
-        <button class="action-btn primary" @click="generateImage" :disabled="isLoading">
-          {{ isLoading ? '生成中...' : '🚀 开始生成' }}
+        <button class="action-btn primary" @click="generateImage">
+          🚀 开始生成
         </button>
       </div>
 
@@ -54,21 +57,104 @@
     
     <div class="preview-panel">
       <div class="result-area">
-        <div v-if="images.length === 0 && !isLoading" class="empty-text">
+        <div class="history-header" v-if="history.length > 0">
+          <h3>🖼️ 我的生图画廊</h3>
+          <button class="clear-btn" @click="clearHistory">清空</button>
+        </div>
+
+        <div v-if="history.length === 0" class="empty-text">
           这里将展示生成的图片
         </div>
-        <div v-else-if="isLoading" class="loading-wrapper">
-          <div class="loader"></div>
-          <p>正在生成中，请耐心等待 (异步任务)...</p>
-        </div>
-        <div v-else class="image-grid">
-          <div v-for="(url, idx) in images" :key="idx" class="image-item">
-            <img :src="url" alt="Generated Image" />
-            <a :href="url" target="_blank" class="download-link">🔗 查看大图/下载</a>
+
+        <div v-if="history.length > 0" class="image-grid">
+          <div v-for="item in history" :key="item.id" class="image-item" :class="item.status">
+            <template v-if="item.status === 'completed'">
+              <img :src="item.url" :alt="item.prompt" :title="item.prompt" />
+              <a :href="item.url" target="_blank" class="download-link">🔗 查看大图/下载</a>
+            </template>
+            <template v-else-if="item.status === 'pending'">
+              <div class="status-box pending-box">
+                <div class="loader-small"></div>
+                <span>生成中...</span>
+              </div>
+              <p class="prompt-preview" :title="item.prompt">{{ item.prompt }}</p>
+            </template>
+            <template v-else-if="item.status === 'failed'">
+              <div class="status-box failed-box">
+                <span>❌ {{ item.errorMessage || '生成失败' }}</span>
+              </div>
+              <p class="prompt-preview" :title="item.prompt">{{ item.prompt }}</p>
+              <button class="retry-btn" @click.stop="retryTask(item)">🔄 刷新状态</button>
+            </template>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Gallery Modal -->
+    <div v-if="showGalleryModal" class="modal-overlay gallery-overlay" @click.self="showGalleryModal = false">
+      <div class="modal-content gallery-modal-content">
+        <div class="gallery-header">
+          <h3>💡 灵感图库</h3>
+          <button class="close-btn" @click="showGalleryModal = false">×</button>
+        </div>
+        <div class="gallery-body">
+          <div v-if="galleryCases.length === 0" class="gallery-loading">
+            <div class="loader"></div>
+            <p>正在加载图库...</p>
+          </div>
+          <div v-else>
+            <div class="category-filters">
+              <button 
+                class="category-pill" 
+                :class="{ active: selectedCategory === 'All' }" 
+                @click="selectedCategory = 'All'"
+              >全部</button>
+              <button 
+                v-for="cat in categories" 
+                :key="cat"
+                class="category-pill" 
+                :class="{ active: selectedCategory === cat }"
+                @click="selectedCategory = cat"
+              >{{ categoryMap[cat] || cat }}</button>
+            </div>
+            <div class="gallery-grid">
+              <div class="gallery-item" v-for="c in filteredCases" :key="c.id" @click="openCaseDetail(c)">
+                <div class="image-wrapper">
+                  <img :src="c.image" loading="lazy" :alt="c.title" />
+                </div>
+                <div class="gallery-title" :title="c.title">{{ c.title }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Case Detail Modal -->
+    <Teleport to="body">
+      <div v-if="selectedCase" class="modal-overlay case-detail-overlay" @click.self="selectedCase = null">
+        <div class="modal-content case-detail-content">
+          <h3>{{ selectedCase.title }}</h3>
+          <div class="case-detail-body">
+            <img :src="selectedCase.image" alt="Case Detail" class="case-detail-image" />
+            <div class="case-detail-prompt">
+              <div class="prompt-header-row">
+                <strong>提示词:</strong>
+                <button class="translate-btn" @click="translatePrompt" :disabled="isAILoading">
+                  {{ isAILoading ? '翻译中...' : '🇨🇳 转成中文' }}
+                </button>
+              </div>
+              <p>{{ selectedCase.prompt }}</p>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button @click="selectedCase = null">取消</button>
+            <button class="primary" @click="applyCase">应用此提示词</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Token Modal -->
     <div v-if="showTokenModal" class="modal-overlay">
@@ -82,36 +168,145 @@
         </div>
       </div>
     </div>
+
+    <!-- DeepSeek Token Modal -->
+    <Teleport to="body">
+      <AIKeyModal v-model="showAIKeyModal" @save="saveAIApiKey" style="z-index: 9999 !important;" />
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { Message } from '@/components/Message/index'
+import { useDeepSeek } from '@/utils/useDeepSeek'
+import AIKeyModal from '@/views/xiaohongshu/components/AIKeyModal.vue'
 
 const prompt = ref('')
 const resolution = ref('1k')
 const size = ref('1:1')
 const n = ref('1')
-const isLoading = ref(false)
+interface HistoryItem {
+  id: string;
+  taskId?: string;
+  url?: string;
+  prompt: string;
+  timestamp: number;
+  status: 'pending' | 'completed' | 'failed';
+  errorMessage?: string;
+}
+
 const taskStatus = ref('')
-const images = ref<string[]>([])
+const history = ref<HistoryItem[]>([])
 
 const showTokenModal = ref(false)
 const alapiToken = ref('')
 const tempToken = ref('')
 
-let pollTimer: number | null = null
+const showGalleryModal = ref(false)
+const galleryCases = ref<any[]>([])
+const selectedCase = ref<any>(null)
+const selectedCategory = ref('All')
+
+const categoryMap: Record<string, string> = {
+  'Architecture & Spaces': '建筑与空间',
+  'Brand & Logos': '品牌与Logo',
+  'Characters & People': '角色与人物',
+  'Charts & Infographics': '图表与信息图',
+  'Documents & Publishing': '文档与排版',
+  'History & Classical Themes': '历史与古典',
+  'Illustration & Art': '插画与艺术',
+  'Other Use Cases': '其他',
+  'Photography & Realism': '摄影与写实',
+  'Posters & Typography': '海报与排版',
+  'Products & E-commerce': '产品与电商',
+  'Scenes & Storytelling': '场景与故事',
+  'UI & Interfaces': '界面与UI',
+  'Uncategorized': '未分类'
+}
+
+const categories = computed(() => {
+  const cats = new Set<string>()
+  galleryCases.value.forEach(c => {
+    if (c.category && c.category !== 'Uncategorized') cats.add(c.category)
+  })
+  return Array.from(cats).sort()
+})
+
+const filteredCases = computed(() => {
+  if (selectedCategory.value === 'All') {
+    return galleryCases.value
+  }
+  return galleryCases.value.filter(c => c.category === selectedCategory.value)
+})
+
+const { isAILoading, showKeyModal: showAIKeyModal, apiKey: aiApiKey, formatTextWithAI, saveApiKey: saveAIApiKey } = useDeepSeek()
+
+const pollTimers: Record<string, number> = {}
 
 onMounted(() => {
   alapiToken.value = localStorage.getItem('alapi-token') || ''
+  try {
+    history.value = JSON.parse(localStorage.getItem('image2-history') || '[]')
+    
+    // Resume polling for pending tasks
+    const pendingTasks = history.value.filter(h => h.status === 'pending' && h.taskId)
+    pendingTasks.forEach(task => {
+      taskStatus.value = `正在恢复任务: ${task.taskId}...`
+      pollTaskResult(task.taskId!, task.prompt)
+    })
+  } catch (e) {
+    history.value = []
+  }
 })
 
 onUnmounted(() => {
-  if (pollTimer !== null) {
-    clearTimeout(pollTimer)
-  }
+  Object.values(pollTimers).forEach(timer => clearTimeout(timer))
 })
+
+const openGallery = async () => {
+  showGalleryModal.value = true
+  if (galleryCases.value.length === 0) {
+    try {
+      const res = await fetch('/cases/data.json')
+      const data = await res.json()
+      galleryCases.value = data
+    } catch (e) {
+      console.error('Failed to load gallery cases', e)
+      Message.error('加载图库失败')
+    }
+  }
+}
+
+const openCaseDetail = (c: any) => {
+  selectedCase.value = c
+}
+
+const retryTask = (item: HistoryItem) => {
+  if (!item.taskId) return
+  item.status = 'pending'
+  item.errorMessage = ''
+  localStorage.setItem('image2-history', JSON.stringify(history.value))
+  taskStatus.value = `正在手动刷新任务: ${item.taskId}...`
+  pollTaskResult(item.taskId, item.prompt)
+}
+
+const applyCase = () => {
+  if (selectedCase.value) {
+    prompt.value = selectedCase.value.prompt
+    showGalleryModal.value = false
+    Message.success(`已应用提示词: ${selectedCase.value.title}`)
+    selectedCase.value = null
+  }
+}
+
+const translatePrompt = async () => {
+  if (!selectedCase.value || !selectedCase.value.prompt) return
+  const translated = await formatTextWithAI(selectedCase.value.prompt, 'translate-prompt', 'image2')
+  if (translated) {
+    selectedCase.value.prompt = translated
+  }
+}
 
 const saveToken = () => {
   if (!tempToken.value.trim()) {
@@ -122,6 +317,12 @@ const saveToken = () => {
   localStorage.setItem('alapi-token', alapiToken.value)
   showTokenModal.value = false
   Message.success('Token 保存成功')
+}
+
+const clearHistory = () => {
+  history.value = []
+  localStorage.removeItem('image2-history')
+  Message.success('历史记录已清空')
 }
 
 const generateImage = async () => {
@@ -135,9 +336,7 @@ const generateImage = async () => {
     return
   }
 
-  isLoading.value = true
   taskStatus.value = '提交任务中...'
-  images.value = []
 
   try {
     const formData = new FormData()
@@ -156,8 +355,19 @@ const generateImage = async () => {
     const data = await res.json()
     if (data.code === 200 && data.success) {
       const taskId = data.data.task_id
+      
+      const newItem: HistoryItem = {
+        id: taskId,
+        taskId,
+        prompt: prompt.value,
+        timestamp: Date.now(),
+        status: 'pending'
+      }
+      history.value.unshift(newItem)
+      localStorage.setItem('image2-history', JSON.stringify(history.value))
+      
       taskStatus.value = `任务提交成功，任务ID: ${taskId}，排队中...`
-      pollTaskResult(taskId)
+      pollTaskResult(taskId, prompt.value)
     } else {
       throw new Error(data.message || '请求失败')
     }
@@ -169,9 +379,9 @@ const generateImage = async () => {
   }
 }
 
-const pollTaskResult = (taskId: string) => {
+const pollTaskResult = (taskId: string, promptStr: string) => {
   let retryCount = 0
-  const maxRetries = 60 // 最多轮询60次，每次3秒，大约3分钟
+  const maxRetries = 60 // 最多轮询60次，每次10秒，大约10分钟
 
   const checkStatus = async () => {
     try {
@@ -182,32 +392,79 @@ const pollTaskResult = (taskId: string) => {
         const status = data.data.status
         taskStatus.value = `当前任务状态: ${status}`
         
-        if (status === 'success') {
-          images.value = data.data.data.map((item: any) => item.url)
-          isLoading.value = false
+        if (status === 'success' || status === 'completed') {
+          const newUrls = data.data.data.map((item: any) => item.url)
+          
+          const index = history.value.findIndex(h => h.taskId === taskId)
+          if (index !== -1) {
+            history.value[index].status = 'completed'
+            history.value[index].url = newUrls[0]
+            
+            if (newUrls.length > 1) {
+              const extraItems = newUrls.slice(1).map((url: string, i: number) => ({
+                id: taskId + '-' + i,
+                taskId,
+                prompt: promptStr,
+                timestamp: Date.now(),
+                status: 'completed' as const,
+                url
+              }))
+              history.value.splice(index + 1, 0, ...extraItems)
+            }
+          }
+          localStorage.setItem('image2-history', JSON.stringify(history.value))
+          
+          delete pollTimers[taskId]
           Message.success('生成成功！(数据只保留7天，请及时下载)')
           return
         } else if (status === 'failed' || status === 'error') {
+          const index = history.value.findIndex(h => h.taskId === taskId)
+          if (index !== -1) {
+            history.value[index].status = 'failed'
+            history.value[index].errorMessage = '生图失败'
+            localStorage.setItem('image2-history', JSON.stringify(history.value))
+          }
+          delete pollTimers[taskId]
           throw new Error('任务处理失败')
         }
         
         retryCount++
         if (retryCount >= maxRetries) {
+          const index = history.value.findIndex(h => h.taskId === taskId)
+          if (index !== -1) {
+            history.value[index].status = 'failed'
+            history.value[index].errorMessage = '任务超时'
+            localStorage.setItem('image2-history', JSON.stringify(history.value))
+          }
+          delete pollTimers[taskId]
           throw new Error('任务处理超时，请稍后重试')
         }
-        pollTimer = window.setTimeout(checkStatus, 3000)
+        pollTimers[taskId] = window.setTimeout(checkStatus, 10000)
       } else {
+        const index = history.value.findIndex(h => h.taskId === taskId)
+        if (index !== -1) {
+          history.value[index].status = 'failed'
+          history.value[index].errorMessage = data.message || '查询任务失败'
+          localStorage.setItem('image2-history', JSON.stringify(history.value))
+        }
+        delete pollTimers[taskId]
         throw new Error(data.message || '查询任务失败')
       }
     } catch (error: any) {
       console.error('轮询错误:', error)
       Message.error(error.message || '查询失败')
-      isLoading.value = false
+      const index = history.value.findIndex(h => h.taskId === taskId)
+      if (index !== -1 && history.value[index].status === 'pending') {
+        history.value[index].status = 'failed'
+        history.value[index].errorMessage = '查询任务出错'
+        localStorage.setItem('image2-history', JSON.stringify(history.value))
+      }
+      delete pollTimers[taskId]
       taskStatus.value = '任务中止'
     }
   }
 
-  pollTimer = window.setTimeout(checkStatus, 3000)
+  pollTimers[taskId] = window.setTimeout(checkStatus, 10000)
 }
 </script>
 
@@ -251,6 +508,38 @@ const pollTaskResult = (taskId: string) => {
   margin-bottom: 8px;
   font-weight: 500;
   color: #333;
+}
+
+.prompt-group {
+  margin-bottom: 20px;
+}
+
+.prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.prompt-header label {
+  margin-bottom: 0;
+}
+
+.gallery-btn {
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  color: #d48806;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+.gallery-btn:hover {
+  background: #fff1b8;
+  border-color: #ffd666;
 }
 
 .form-group textarea,
@@ -340,18 +629,51 @@ const pollTaskResult = (taskId: string) => {
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.05);
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
   padding: 20px;
   overflow: auto;
 }
 
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.history-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.clear-btn {
+  background: none;
+  border: 1px solid #ff4d4f;
+  color: #ff4d4f;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.3s;
+}
+
+.clear-btn:hover {
+  background: #fff1f0;
+}
+
 .empty-text {
+  margin: auto;
   color: #999;
   font-size: 16px;
 }
 
 .loading-wrapper {
+  margin: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -389,14 +711,78 @@ const pollTaskResult = (taskId: string) => {
   flex-direction: column;
   align-items: center;
   max-width: 100%;
+  width: 100%;
+  border: 1px solid #ebedf0;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  box-sizing: border-box;
 }
 
 .image-item img {
   max-width: 100%;
   max-height: 60vh;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  border-radius: 4px;
   object-fit: contain;
+}
+
+.status-box {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.pending-box {
+  color: #1890ff;
+}
+
+.failed-box {
+  color: #ff4d4f;
+  background: #fff1f0;
+}
+
+.loader-small {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #1890ff;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+.prompt-preview {
+  font-size: 12px;
+  color: #666;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  margin: 4px 0 0 0;
+}
+
+.retry-btn {
+  margin-top: 8px;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  color: #666;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.retry-btn:hover {
+  border-color: #1890ff;
+  color: #1890ff;
 }
 
 .download-link {
@@ -429,6 +815,7 @@ const pollTaskResult = (taskId: string) => {
   padding: 30px;
   border-radius: 12px;
   width: 400px;
+  max-width: 90vw;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
@@ -463,6 +850,226 @@ const pollTaskResult = (taskId: string) => {
   background: #1890ff;
   color: white;
   border-color: #1890ff;
+}
+
+/* Gallery Modal specific */
+.gallery-overlay {
+  align-items: flex-start;
+  padding-top: 5vh;
+}
+
+.gallery-modal-content {
+  width: 900px;
+  max-width: 95vw;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 12px;
+}
+
+.gallery-header h3 {
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.gallery-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.gallery-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  padding: 4px;
+}
+
+.gallery-item {
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+}
+
+.gallery-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.12);
+}
+
+.image-wrapper {
+  width: 100%;
+  padding-top: 100%; /* 1:1 aspect ratio */
+  position: relative;
+  background: #f5f5f5;
+}
+
+.image-wrapper img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-title {
+  padding: 10px;
+  font-size: 13px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.category-filters {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 0 4px 12px 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.category-filters::-webkit-scrollbar {
+  height: 4px;
+}
+
+.category-filters::-webkit-scrollbar-thumb {
+  background-color: #ddd;
+  border-radius: 2px;
+}
+
+.category-pill {
+  padding: 6px 16px;
+  background: #f5f5f5;
+  border: 1px solid #e8e8e8;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.3s;
+  color: #666;
+}
+
+.category-pill:hover {
+  color: #1890ff;
+  border-color: #1890ff;
+}
+
+.category-pill.active {
+  background: #e6f7ff;
+  border-color: #1890ff;
+  color: #1890ff;
+  font-weight: bold;
+}
+
+/* Case Detail Modal */
+.case-detail-overlay {
+  z-index: 1001; /* Higher than gallery modal */
+}
+
+.case-detail-content {
+  width: 600px;
+  max-width: 90vw;
+}
+
+.case-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 16px 0;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.case-detail-image {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f5f5f5;
+}
+
+.case-detail-prompt {
+  background: #f9f9f9;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ebedf0;
+}
+
+.prompt-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.case-detail-prompt strong {
+  color: #333;
+}
+
+.translate-btn {
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  color: #1890ff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.3s;
+}
+
+.translate-btn:hover:not(:disabled) {
+  background: #bae0ff;
+  border-color: #69c0ff;
+}
+
+.translate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.case-detail-prompt p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+  word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 768px) {

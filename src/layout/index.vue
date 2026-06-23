@@ -1,11 +1,34 @@
 <template>
   <div class="layout-container">
-    <div class="sidebar">
+    <!-- Mobile header -->
+    <div class="mobile-header">
+      <button class="menu-toggle" @click="isMobileMenuOpen = true">
+        <span class="icon">☰</span>
+      </button>
+      <h2>🛠️ 创作盒子</h2>
+    </div>
+
+    <!-- Overlay -->
+    <div 
+      v-if="isMobileMenuOpen" 
+      class="mobile-overlay" 
+      @click="isMobileMenuOpen = false"
+    ></div>
+
+    <div class="sidebar" :class="{ 'is-open': isMobileMenuOpen }">
       <div class="logo">
         <h2>🛠️ 创作盒子</h2>
+        <button class="close-menu" @click="isMobileMenuOpen = false">×</button>
       </div>
       <div class="menu">
-        <router-link v-for="item in menuList" :key="item.path" :to="item.path" class="menu-item" active-class="active">
+        <router-link 
+          v-for="item in menuList" 
+          :key="item.path" 
+          :to="item.path" 
+          class="menu-item" 
+          active-class="active"
+          @click="isMobileMenuOpen = false"
+        >
           <span class="icon">{{ item.icon }}</span>
           <span class="text">{{ item.text }}</span>
         </router-link>
@@ -24,6 +47,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+const isMobileMenuOpen = ref(false)
+
 const menuList = ref([
   { path: '/xhs', icon: '📱', text: '小红书封面' },
   { path: '/wechat', icon: '✍️', text: '公众号排版' },
@@ -40,6 +65,10 @@ const menuList = ref([
   height: 100vh;
   background-color: #f1f2f5;
 }
+/* 默认隐藏移动端特有元素 */
+.mobile-header, .mobile-overlay, .close-menu {
+  display: none;
+}
 .sidebar {
   z-index: 100;
   display: flex;
@@ -51,6 +80,7 @@ const menuList = ref([
 }
 .logo {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   padding: 0 20px;
   height: 64px;
@@ -108,49 +138,82 @@ const menuList = ref([
   opacity: 0;
 }
 
-/* 📱 移动端适配：改为底部的 Tab 栏 */
+/* 📱 移动端适配：改为左侧抽屉 */
 @media (max-width: 768px) {
   .layout-container {
     flex-direction: column;
   }
+  
+  /* 移动端顶部 Header */
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    height: 50px;
+    background: #fff;
+    border-bottom: 1px solid #ebedf0;
+    padding: 0 16px;
+    z-index: 50;
+  }
+  .mobile-header h2 {
+    margin: 0 0 0 16px;
+    font-size: 16px;
+    color: #333;
+  }
+  .menu-toggle {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px;
+    color: #666;
+  }
+
+  /* 遮罩层 */
+  .mobile-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+  }
+
+  /* 侧边栏改为抽屉形式 */
   .sidebar {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 60px;
-    border-top: 1px solid #ebedf0;
+    top: 0;
+    left: -280px;
+    width: 260px;
+    height: 100vh;
     border-right: none;
-    box-shadow: 0 -2px 8px rgb(0 0 0 / 5%);
-    flex-direction: row;
-  }
-  .logo {
-    display: none; /* 移动端隐藏 Logo，节约空间 */
-  }
-  .menu {
-    padding: 0;
-    width: 100%;
-    flex-direction: row;
-    gap: 0;
-  }
-  .menu-item {
-    justify-content: center;
-    padding: 6px 0;
-    border-radius: 0;
-    flex: 1;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+    z-index: 101;
+    transition: left 0.3s ease;
     flex-direction: column;
   }
-  .menu-item .icon {
-    margin-right: 0;
-    margin-bottom: 4px;
-    font-size: 20px;
+  .sidebar.is-open {
+    left: 0;
   }
-  .menu-item .text {
-    font-size: 12px;
+  
+  .logo {
+    display: flex;
+    justify-content: space-between;
   }
+  
+  .close-menu {
+    display: block;
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #999;
+    cursor: pointer;
+  }
+
   .main-content {
-    height: calc(100vh - 60px);
-    flex: none; /* 覆盖默认 flex: 1，防止手机端高度算错 */
+    height: calc(100vh - 50px);
+    flex: none;
   }
 }
 </style>
