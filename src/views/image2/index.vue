@@ -920,6 +920,7 @@ const pollTaskResult = (taskId: string, promptStr: string) => {
   align-items: center;
   max-width: 100%;
   width: 100%;
+  min-width: 0;
   border: 1px solid #ebedf0;
   border-radius: 8px;
   padding: 8px;
