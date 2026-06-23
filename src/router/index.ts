@@ -27,6 +27,11 @@ const router = createRouter({
           path: 'image2',
           name: 'image2',
           component: () => import('@/views/image2/index.vue')
+        },
+        {
+          path: 'poster',
+          name: 'poster',
+          component: () => import('@/views/PosterEditor/index.vue')
         }
       ]
     },
