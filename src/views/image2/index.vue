@@ -488,7 +488,7 @@ const pollTaskResult = (taskId: string, promptStr: string) => {
         taskStatus.value = `当前任务状态: ${status}`
         
         if (status === 'success' || status === 'completed') {
-          const newUrls = data.data.data.map((item: any) => item.url)
+          const newUrls = (data.data.result?.images || data.data.data || []).map((item: any) => item.url)
           
           const index = history.value.findIndex(h => h.taskId === taskId)
           if (index !== -1) {
