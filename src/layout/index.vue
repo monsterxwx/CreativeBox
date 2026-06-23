@@ -5,17 +5,9 @@
         <h2>🛠️ 创作盒子</h2>
       </div>
       <div class="menu">
-        <router-link to="/xhs" class="menu-item" active-class="active">
-          <span class="icon">📱</span>
-          <span class="text">小红书封面</span>
-        </router-link>
-        <router-link to="/wechat" class="menu-item" active-class="active">
-          <span class="icon">✍️</span>
-          <span class="text">公众号排版</span>
-        </router-link>
-        <router-link to="/markdown" class="menu-item" active-class="active">
-          <span class="icon">📝</span>
-          <span class="text">Markdown 简历</span>
+        <router-link v-for="item in menuList" :key="item.path" :to="item.path" class="menu-item" active-class="active">
+          <span class="icon">{{ item.icon }}</span>
+          <span class="text">{{ item.text }}</span>
         </router-link>
       </div>
     </div>
@@ -30,7 +22,14 @@
 </template>
 
 <script setup lang="ts">
-// Layout logic here if needed
+import { ref } from 'vue'
+
+const menuList = ref([
+  { path: '/xhs', icon: '📱', text: '小红书封面' },
+  { path: '/wechat', icon: '✍️', text: '公众号排版' },
+  { path: '/markdown', icon: '📝', text: 'Markdown 简历' },
+  { path: '/image2', icon: '🖼️', text: 'Image2生图' }
+])
 </script>
 
 <style scoped>

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "alapi": {
+      "source": "ALAPI-SDK/skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "155ae602332ff30600e0db77fdc734b351d7a4e211ef4dcac0fc24837f4d5d07"
+    }
+  }
+}
