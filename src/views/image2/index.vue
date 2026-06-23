@@ -12,6 +12,23 @@
         <textarea v-model="prompt" placeholder="请输入你要生成图片的提示词..." rows="4"></textarea>
       </div>
 
+      <div class="form-group prompt-group">
+        <label>参考图 (可选) <span class="hint">最多上传 16 张</span></label>
+        <div class="upload-list">
+          <div v-for="(img, idx) in referenceImages" :key="idx" class="upload-item">
+            <img :src="img.preview" />
+            <button class="remove-btn" @click.stop="removeReferenceImage(idx)">×</button>
+            <div v-if="img.status === 'uploading'" class="upload-mask">上传中</div>
+            <div v-else-if="img.status === 'error'" class="upload-mask error-mask" :title="img.errorMessage">上传失败</div>
+          </div>
+          <div class="upload-item upload-btn" @click="triggerUpload" v-if="referenceImages.length < 16">
+            <span class="plus">+</span>
+            <span>上传图片</span>
+          </div>
+          <input type="file" ref="fileInput" @change="handleFileUpload" accept="image/png, image/jpeg, image/webp" multiple hidden />
+        </div>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label>分辨率:</label>
@@ -186,6 +203,9 @@ const prompt = ref('')
 const resolution = ref('1k')
 const size = ref('1:1')
 const n = ref('1')
+const fileInput = ref<HTMLInputElement | null>(null)
+const referenceImages = ref<{ file: File, preview: string, status: 'uploading'|'success'|'error', url?: string, errorMessage?: string }[]>([])
+
 interface HistoryItem {
   id: string;
   taskId?: string;
@@ -300,6 +320,63 @@ const applyCase = () => {
   }
 }
 
+const triggerUpload = () => {
+  if (!alapiToken.value) {
+    tempToken.value = ''
+    showTokenModal.value = true
+    return
+  }
+  fileInput.value?.click()
+}
+
+const handleFileUpload = async (e: Event) => {
+  const target = e.target as HTMLInputElement
+  if (!target.files?.length) return
+  
+  const newFiles = Array.from(target.files)
+  target.value = '' // reset
+  
+  for (const file of newFiles) {
+    if (referenceImages.value.length >= 16) {
+      Message.warning('最多只能上传 16 张参考图')
+      break
+    }
+    
+    const preview = URL.createObjectURL(file)
+    const imgItem = ref({ file, preview, status: 'uploading' as const, url: '', errorMessage: '' }).value
+    referenceImages.value.push(imgItem)
+    
+    try {
+      const fd = new FormData()
+      fd.append('token', alapiToken.value)
+      fd.append('content_type', file.type)
+      fd.append('image', file)
+      fd.append('file', file)
+      
+      const res = await fetch('https://v3.alapi.cn/api/ai/images/generations/upload_image', {
+        method: 'POST',
+        body: fd
+      })
+      const data = await res.json()
+      if (data.code === 200 && data.success) {
+        imgItem.status = 'success'
+        imgItem.url = typeof data.data === 'string' ? data.data : (data.data?.url || data.data?.image_id)
+      } else {
+        throw new Error(data.message || '上传失败')
+      }
+    } catch (err: any) {
+      imgItem.status = 'error'
+      imgItem.errorMessage = err.message
+      Message.error(`图片 ${file.name} 上传失败: ${err.message}`)
+    }
+  }
+}
+
+const removeReferenceImage = (idx: number) => {
+  URL.revokeObjectURL(referenceImages.value[idx].preview)
+  referenceImages.value.splice(idx, 1)
+}
+
 const translatePrompt = async () => {
   if (!selectedCase.value || !selectedCase.value.prompt) return
   const translated = await formatTextWithAI(selectedCase.value.prompt, 'translate-prompt', 'image2')
@@ -346,6 +423,14 @@ const generateImage = async () => {
     formData.append('n', n.value)
     formData.append('size', size.value)
     formData.append('resolution', resolution.value)
+
+    const validImages = referenceImages.value.filter(img => img.status === 'success' && img.url).map(img => img.url)
+    if (validImages.length > 0) {
+      // Pass images either as multiple appended values or joined, depending on ALAPI standard.
+      // We will append it as a comma-separated string `images` and also `image` array just to be safe.
+      formData.append('images', validImages.join(','))
+      validImages.forEach(img => formData.append('image[]', img))
+    }
 
     const res = await fetch('https://v3.alapi.cn/api/ai/images/generations_sync', {
       method: 'POST',
@@ -542,6 +627,100 @@ const pollTaskResult = (taskId: string, promptStr: string) => {
   border-color: #ffd666;
 }
 
+.hint {
+  font-size: 12px;
+  color: #999;
+  font-weight: normal;
+  margin-left: 8px;
+}
+
+.upload-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.upload-item {
+  width: 100px;
+  height: 100px;
+  border: 1px dashed #dcdfe6;
+  border-radius: 8px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+.upload-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-btn {
+  color: #8c8c8c;
+  transition: all 0.3s;
+}
+
+.upload-btn:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.upload-btn .plus {
+  font-size: 28px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 14px;
+  cursor: pointer;
+  z-index: 2;
+  padding: 0;
+}
+
+.remove-btn:hover {
+  background: #ff4d4f;
+}
+
+.upload-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #1890ff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.error-mask {
+  color: #ff4d4f;
+  background: rgba(255,241,240,0.85);
+}
+
 .form-group textarea,
 .form-group select,
 .form-group input {
@@ -696,14 +875,11 @@ const pollTaskResult = (taskId: string, promptStr: string) => {
 }
 
 .image-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 20px;
-  justify-content: center;
-  align-items: flex-start;
   width: 100%;
-  height: 100%;
-  overflow-y: auto;
+  align-content: start;
 }
 
 .image-item {
