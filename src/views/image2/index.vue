@@ -288,7 +288,10 @@ const openGallery = async () => {
   showGalleryModal.value = true
   if (galleryCases.value.length === 0) {
     try {
-      const res = await fetch('/cases/data.json')
+      const baseUrl = import.meta.env.BASE_URL
+      // Ensure there are no double slashes if BASE_URL has a trailing slash
+      const url = `${baseUrl}cases/data.json`.replace('//cases', '/cases')
+      const res = await fetch(url)
       const data = await res.json()
       galleryCases.value = data
     } catch (e) {
